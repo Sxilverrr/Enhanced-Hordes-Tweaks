@@ -21,7 +21,7 @@ public class HordeSightHandler {
     private static final UUID SIGHT_MODIFIER_ID = UUID.fromString("a7d3c1f4-9b2e-4d56-8f10-2c4e9a6b3d71");
     private static final String SIGHT_MODIFIER_NAME = "EnhancedHordes Horde Sight Bonus";
     private static final int REFRESH_INTERVAL_TICKS = 200;
-    private static final double MAX_SIGHT_BONUS = 256.0;
+    private static final long MAX_SIGHT_BONUS = 256;
 
     @SubscribeEvent
     //? if >=1.19.2 {
@@ -37,9 +37,7 @@ public class HordeSightHandler {
         AttributeInstance inst = mob.getAttribute(Attributes.FOLLOW_RANGE);
         if (inst == null) return;
 
-        boolean featureEnabled = EnhancedHordesTweaksConfig.hordeSightRangeBonus > 0
-                || EnhancedHordesTweaksConfig.hordeSightIncreaseOverTime;
-        double targetBonus = featureEnabled ? computeBonus(level) : 0.0;
+        double targetBonus = computeBonus(EnhancedHordesTweaksConfig.day(level));
         AttributeModifier existing = inst.getModifier(SIGHT_MODIFIER_ID);
         double currentBonus = existing == null ? 0.0 : existing.getAmount();
         if (Math.abs(currentBonus - targetBonus) < 1.0e-6) return;
@@ -56,20 +54,12 @@ public class HordeSightHandler {
         }
     }
 
-    private static double computeBonus(ServerLevel level) {
-        int baseBonus = EnhancedHordesTweaksConfig.hordeSightRangeBonus;
-        int threshold = EnhancedHordesTweaksConfig.hordeSightDaysBeforeActivation;
-        long daysElapsed = level.getGameTime() / 24000L;
-
-        if (daysElapsed < threshold) return 0.0;
-        double bonus = baseBonus;
-
-        if (EnhancedHordesTweaksConfig.hordeSightIncreaseOverTime) {
-            long daysSinceActivation = daysElapsed - threshold;
-            int interval = Math.max(1, EnhancedHordesTweaksConfig.hordeSightIncreaseIntervalDays);
-            long increments = daysSinceActivation / interval;
-            bonus += increments * EnhancedHordesTweaksConfig.hordeSightIncreaseAmount;
-        }
-        return Math.min(bonus, MAX_SIGHT_BONUS);
+    public static long computeBonus(long day) {
+        if (day < EnhancedHordesTweaksConfig.hordeSightDaysBeforeActivation) return 0;
+        return EnhancedHordesTweaksConfig.scaled(EnhancedHordesTweaksConfig.hordeSightRangeBonus,
+                EnhancedHordesTweaksConfig.hordeSightIncreaseOverTime,
+                EnhancedHordesTweaksConfig.hordeSightDaysBeforeActivation,
+                EnhancedHordesTweaksConfig.hordeSightIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.hordeSightIncreaseAmount, MAX_SIGHT_BONUS, day);
     }
 }

@@ -11,7 +11,7 @@ import java.util.List;
 
 import com.enhancedhordes.tweaks.EnhancedHordesTweaksMod;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class EnhancedHordesTweaksConfig {
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -191,6 +191,15 @@ public class EnhancedHordesTweaksConfig {
             )
             .define("features.enableHordeBlockBreaking", true);
 
+    private static final ModConfigSpec.IntValue HORDE_SMASHING_POWER = BUILDER
+            .comment(
+                "The number of horde mobs grouped together that will smash through nearby blocks regardless of block hardness.",
+                "Sets the 'hordeSmashingPower' game rule. 0 disables smashing.",
+                "Only works on Minecraft 1.20.1 and newer.",
+                "Range: 0 ~ 100"
+            )
+            .defineInRange("features.hordeSmashingPower", 0, 0, 100);
+
     private static final ModConfigSpec.BooleanValue ENABLE_HORDE_SWIMMING = BUILDER
             .comment(
                 "Allow horde mobs to float and swim across water instead of sinking."
@@ -214,7 +223,8 @@ public class EnhancedHordesTweaksConfig {
 
     private static final ModConfigSpec.IntValue FEATURES_DAYS_BEFORE_ACTIVATION = BUILDER
             .comment(
-                "In-game day threshold before any Enhanced Hordes feature in this category becomes active.",
+                "In-game day threshold before Enhanced Hordes features become active.",
+                "Does not affect intelligent teams, leaping mobs, intelligent piglins, hidden zombies, or the horde mob cap.",
                 "Range: 0 ~ 10000"
             )
             .defineInRange("features.daysBeforeFeaturesActivate", 0, 0, 10000);
@@ -929,7 +939,7 @@ public class EnhancedHordesTweaksConfig {
                             "#minecraft:snow",
                             "#minecraft:ice",
                             "#minecraft:beehives",
-                            "minecraft:bookshelf",
+                            "#c:bookshelves",
                             "#minecraft:buttons",
                             "#minecraft:stone_pressure_plates",
                             "minecraft:lightning_rod",
@@ -1606,6 +1616,7 @@ public class EnhancedHordesTweaksConfig {
     public static boolean enableIntelligentPiglins;
     public static boolean enableHiddenZombies;
     public static boolean enableHordeBlockBreaking;
+    public static int hordeSmashingPower;
     public static boolean disableGameruleCommands;
     public static int featuresDaysBeforeActivation;
 
@@ -1766,8 +1777,16 @@ public class EnhancedHordesTweaksConfig {
     public static String universalHostilityStage;
 
     public static boolean daysElapsedReached(Level level, int threshold) {
-        if (threshold <= 0) return true;
-        return level.getGameTime() >= (long) threshold * 24000L;
+        return day(level) >= threshold;
+    }
+
+    public static long day(Level level) {
+        return level.getGameTime() / 24000L;
+    }
+
+    public static long scaled(long base, boolean overTime, int threshold, int interval, int amount, long max, long day) {
+        if (!overTime || day < threshold) return Math.min(base, max);
+        return Math.min(base + (day - threshold) / interval * amount, max);
     }
 
     @SubscribeEvent
@@ -1812,6 +1831,7 @@ public class EnhancedHordesTweaksConfig {
         enableIntelligentPiglins = ENABLE_INTELLIGENT_PIGLINS.get();
         enableHiddenZombies = ENABLE_HIDDEN_ZOMBIES.get();
         enableHordeBlockBreaking = ENABLE_HORDE_BLOCK_BREAKING.get();
+        hordeSmashingPower = HORDE_SMASHING_POWER.get();
         disableGameruleCommands = DISABLE_GAMERULE_COMMANDS.get();
         featuresDaysBeforeActivation = FEATURES_DAYS_BEFORE_ACTIVATION.get();
 

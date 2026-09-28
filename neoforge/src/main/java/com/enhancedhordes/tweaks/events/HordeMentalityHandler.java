@@ -37,7 +37,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 
 import java.util.*;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class HordeMentalityHandler {
 
     private static final Random RANDOM = new Random();
@@ -76,12 +76,8 @@ public class HordeMentalityHandler {
     @SubscribeEvent
     public static void onLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
-            LevelMentalityData data = levelData.remove(level.dimension());
-            if (data != null) {
-                for (Map.Entry<BlockPos, Integer> e : data.breakerIds.entrySet()) {
-                    level.destroyBlockProgress(e.getValue(), e.getKey(), -1);
-                }
-            }
+            LevelMentalityData data = levelData.get(level.dimension());
+            if (data != null) clearAll(level, data);
         }
     }
 
@@ -112,21 +108,8 @@ public class HordeMentalityHandler {
             }
         }
 
-        int count = hordeMobs.size();
         Set<UUID> activeMobUUIDs = new HashSet<>();
-        double[] px = new double[count];
-        double[] py = new double[count];
-        double[] pz = new double[count];
-        boolean[] contributes = new boolean[count];
-        for (int i = 0; i < count; i++) {
-            Entity e = hordeMobs.get(i);
-            activeMobUUIDs.add(e.getUUID());
-            px[i] = e.getX();
-            py[i] = e.getY();
-            pz[i] = e.getZ();
-            contributes[i] = EnhancedHordesTweaksConfig.hordeMentalityBabyMobsContribute
-                    || !(e instanceof Mob m && m.isBaby());
-        }
+        for (Entity e : hordeMobs) activeMobUUIDs.add(e.getUUID());
 
         Map<BlockPos, Integer> damageThisTick = new HashMap<>();
         Map<BlockPos, Integer> tierThisTick = new HashMap<>();
@@ -158,24 +141,13 @@ public class HordeMentalityHandler {
                 nearestPlayer = (Player) currentTarget;
             }
 
-            if (nearestPlayer == null && !hostilityChase
-                    && EnhancedHordesTweaksConfig.hordeMentalityRequireBlockInDirection) {
-                nearestPlayer = level.getNearestPlayer(mob, 64.0);
-            }
-
             long lastSwing = data.mobLastSwingTick.getOrDefault(mob.getUUID(), -swingInterval - 1L);
             if (gameTime - lastSwing < swingInterval) continue;
 
-            double mobX = mob.getX();
-            double mobY = mob.getY();
-            double mobZ = mob.getZ();
             int groupSize = 0;
-            for (int i = 0; i < count; i++) {
-                if (!contributes[i]) continue;
-                double dx = px[i] - mobX;
-                double dy = py[i] - mobY;
-                double dz = pz[i] - mobZ;
-                if (dx * dx + dy * dy + dz * dz <= groupRadiusSq) {
+            for (Entity e : hordeMobs) {
+                if (mob.distanceToSqr(e) <= groupRadiusSq
+                        && (EnhancedHordesTweaksConfig.hordeMentalityBabyMobsContribute || !(e instanceof Mob m && m.isBaby()))) {
                     groupSize++;
                 }
             }
@@ -218,7 +190,6 @@ public class HordeMentalityHandler {
             boolean targetBelow = false;
             if (playerTarget
                     && EnhancedHordesTweaksConfig.hordeMentalityAllowDigDownToPlayer
-                    && nearestPlayer != null
                     && nearestPlayer.getY() < mob.getY() - 1.0) {
                 targetBelow = true;
             } else if (hostilityChase
@@ -428,8 +399,7 @@ public class HordeMentalityHandler {
     private static int breakerId(LevelMentalityData data, BlockPos pos) {
         Integer id = data.breakerIds.get(pos);
         if (id == null) {
-            id = data.nextBreakerId++;
-            if (data.nextBreakerId == Integer.MAX_VALUE) data.nextBreakerId = 1;
+            id = data.nextBreakerId--;
             data.breakerIds.put(pos.immutable(), id);
         }
         return id;
@@ -456,6 +426,6 @@ public class HordeMentalityHandler {
         final Map<UUID, Long> mobLastSwingTick = new HashMap<>();
         final Map<BlockPos, Integer> breakerIds = new HashMap<>();
         final Map<BlockPos, Integer> shownStage = new HashMap<>();
-        int nextBreakerId = 1;
+        int nextBreakerId = -1;
     }
 }

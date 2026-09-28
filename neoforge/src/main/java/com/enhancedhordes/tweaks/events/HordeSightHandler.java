@@ -13,15 +13,15 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class HordeSightHandler {
 
     private static final ResourceLocation SIGHT_MODIFIER_ID = ResourceLocation.fromNamespaceAndPath("enhanced_hordes_tweaks", "horde_sight_bonus");
     private static final int REFRESH_INTERVAL_TICKS = 200;
-    private static final double MAX_SIGHT_BONUS = 256.0;
+    private static final long MAX_SIGHT_BONUS = 256;
 
     @SubscribeEvent
-    public static void onLivingTick(EntityTickEvent.Post event) {
+    public static void onLivingTick(EntityTickEvent.Pre event) {
         if (!(event.getEntity() instanceof Mob mob)) return;
         if (!(mob.level() instanceof ServerLevel level)) return;
         if (mob.tickCount % REFRESH_INTERVAL_TICKS != 0) return;
@@ -30,9 +30,7 @@ public class HordeSightHandler {
         AttributeInstance inst = mob.getAttribute(Attributes.FOLLOW_RANGE);
         if (inst == null) return;
 
-        boolean featureEnabled = EnhancedHordesTweaksConfig.hordeSightRangeBonus > 0
-                || EnhancedHordesTweaksConfig.hordeSightIncreaseOverTime;
-        double targetBonus = featureEnabled ? computeBonus(level) : 0.0;
+        double targetBonus = computeBonus(EnhancedHordesTweaksConfig.day(level));
         AttributeModifier existing = inst.getModifier(SIGHT_MODIFIER_ID);
         double currentBonus = existing == null ? 0.0 : existing.amount();
         if (Math.abs(currentBonus - targetBonus) < 1.0e-6) return;
@@ -48,20 +46,12 @@ public class HordeSightHandler {
         }
     }
 
-    private static double computeBonus(ServerLevel level) {
-        int baseBonus = EnhancedHordesTweaksConfig.hordeSightRangeBonus;
-        int threshold = EnhancedHordesTweaksConfig.hordeSightDaysBeforeActivation;
-        long daysElapsed = level.getGameTime() / 24000L;
-
-        if (daysElapsed < threshold) return 0.0;
-        double bonus = baseBonus;
-
-        if (EnhancedHordesTweaksConfig.hordeSightIncreaseOverTime) {
-            long daysSinceActivation = daysElapsed - threshold;
-            int interval = Math.max(1, EnhancedHordesTweaksConfig.hordeSightIncreaseIntervalDays);
-            long increments = daysSinceActivation / interval;
-            bonus += increments * EnhancedHordesTweaksConfig.hordeSightIncreaseAmount;
-        }
-        return Math.min(bonus, MAX_SIGHT_BONUS);
+    public static long computeBonus(long day) {
+        if (day < EnhancedHordesTweaksConfig.hordeSightDaysBeforeActivation) return 0;
+        return EnhancedHordesTweaksConfig.scaled(EnhancedHordesTweaksConfig.hordeSightRangeBonus,
+                EnhancedHordesTweaksConfig.hordeSightIncreaseOverTime,
+                EnhancedHordesTweaksConfig.hordeSightDaysBeforeActivation,
+                EnhancedHordesTweaksConfig.hordeSightIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.hordeSightIncreaseAmount, MAX_SIGHT_BONUS, day);
     }
 }

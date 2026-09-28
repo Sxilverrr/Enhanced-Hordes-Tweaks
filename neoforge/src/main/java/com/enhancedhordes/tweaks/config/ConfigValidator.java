@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public final class ConfigValidator {
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -40,17 +40,12 @@ public final class ConfigValidator {
         validateBlockList("hordeMentalityTier4Blocks", EnhancedHordesTweaksConfig.hordeMentalityTier4Blocks, errors);
         validateBlockList("hordeMentalityBlacklistBlocks", EnhancedHordesTweaksConfig.hordeMentalityBlacklistBlocks, errors);
 
-        if (!errors.isEmpty()) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("Enhanced Hordes Tweaks config validation failed — ")
-              .append(errors.size())
-              .append(" invalid entr").append(errors.size() == 1 ? "y" : "ies").append(":\n");
-            for (String err : errors) sb.append("  - ").append(err).append('\n');
-            sb.append("These are not present on this Minecraft version and will simply have no effect.");
-            LOGGER.warn("[Enhanced Hordes Tweaks] {}", sb.toString());
+        if (errors.isEmpty()) {
+            LOGGER.info("[Enhanced Hordes Tweaks] Config validation passed.");
+        } else {
+            LOGGER.warn("[Enhanced Hordes Tweaks] Enhanced Hordes Tweaks config validation failed — {} invalid entr{}:\n  - {}\nThese are not present on this Minecraft version and will simply have no effect.",
+                    errors.size(), errors.size() == 1 ? "y" : "ies", String.join("\n  - ", errors));
         }
-
-        LOGGER.info("[Enhanced Hordes Tweaks] Config validation passed.");
     }
 
     private static void validateEntityList(String name, List<? extends String> list, List<String> errors) {

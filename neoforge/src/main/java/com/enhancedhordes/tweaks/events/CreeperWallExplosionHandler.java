@@ -16,14 +16,14 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class CreeperWallExplosionHandler {
 
     private static final int CHECK_INTERVAL_TICKS = 20;
     private static final double WALL_TOUCH_REACH = 0.7;
 
     @SubscribeEvent
-    public static void onLivingTick(EntityTickEvent.Post event) {
+    public static void onLivingTick(EntityTickEvent.Pre event) {
         if (!EnhancedHordesTweaksConfig.enableCreeperWallExplosion) return;
         if (!(event.getEntity() instanceof Creeper creeper)) return;
         if (!(creeper.level() instanceof ServerLevel level)) return;

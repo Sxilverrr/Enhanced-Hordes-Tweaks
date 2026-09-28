@@ -3,6 +3,10 @@ package com.enhancedhordes.tweaks.command;
 import com.enhancedhordes.tweaks.EnhancedHordesTweaksMod;
 import com.enhancedhordes.tweaks.compat.GameStagesCompat;
 import com.enhancedhordes.tweaks.config.EnhancedHordesTweaksConfig;
+import com.enhancedhordes.tweaks.events.CollectiveUnderstandingHandler;
+import com.enhancedhordes.tweaks.events.HeightenedSenseHandler;
+import com.enhancedhordes.tweaks.events.HordeDeterminationHandler;
+import com.enhancedhordes.tweaks.events.HordeSightHandler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -12,7 +16,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class EhtCommandHandler {
 
     @SubscribeEvent
@@ -26,7 +30,7 @@ public class EhtCommandHandler {
 
     private static int status(CommandSourceStack source) {
         ServerLevel level = source.getLevel();
-        long day = level.getGameTime() / 24000L;
+        long day = EnhancedHordesTweaksConfig.day(level);
 
         send(source, Component.literal("=== Enhanced Hordes Tweaks ===").withStyle(ChatFormatting.GOLD));
         info(source, "Day", String.valueOf(day));
@@ -38,31 +42,16 @@ public class EhtCommandHandler {
 
         feature(source, "Horde Determination", EnhancedHordesTweaksConfig.enableHordeDetermination, day,
                 EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation,
-                "distance " + scaled(
-                        EnhancedHordesTweaksConfig.hordeDeterminationFollowDistance,
-                        EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseOverTime,
-                        EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation,
-                        EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseIntervalDays,
-                        EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseAmount, 10000, day)
-                        + ", time " + followTime(day) + " min");
+                "distance " + HordeDeterminationHandler.computeFollowDistance(day)
+                        + ", time " + HordeDeterminationHandler.computeFollowTimeMinutes(day) + " min");
 
         feature(source, "Heightened Sense", EnhancedHordesTweaksConfig.enableHeightenedSense, day,
                 EnhancedHordesTweaksConfig.heightenedSenseDaysBeforeActivation,
-                "range " + scaled(
-                        EnhancedHordesTweaksConfig.heightenedSenseRange,
-                        EnhancedHordesTweaksConfig.heightenedSenseIncreaseOverTime,
-                        EnhancedHordesTweaksConfig.heightenedSenseDaysBeforeActivation,
-                        EnhancedHordesTweaksConfig.heightenedSenseIncreaseIntervalDays,
-                        EnhancedHordesTweaksConfig.heightenedSenseIncreaseAmount, 128, day));
+                "range " + HeightenedSenseHandler.computeRange(day));
 
         feature(source, "Collective Understanding", EnhancedHordesTweaksConfig.enableCollectiveUnderstanding, day,
                 EnhancedHordesTweaksConfig.collectiveUnderstandingDaysBeforeActivation,
-                "range " + scaled(
-                        EnhancedHordesTweaksConfig.collectiveUnderstandingRange,
-                        EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseOverTime,
-                        EnhancedHordesTweaksConfig.collectiveUnderstandingDaysBeforeActivation,
-                        EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseIntervalDays,
-                        EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseAmount, 128, day));
+                "range " + CollectiveUnderstandingHandler.computeRange(day));
 
         hordeSight(source, day);
 
@@ -89,9 +78,7 @@ public class EhtCommandHandler {
             status = Component.literal("active").withStyle(ChatFormatting.GREEN);
         }
 
-        long bonus = scaled(EnhancedHordesTweaksConfig.hordeSightRangeBonus, overTime, threshold,
-                EnhancedHordesTweaksConfig.hordeSightIncreaseIntervalDays,
-                EnhancedHordesTweaksConfig.hordeSightIncreaseAmount, 256, day);
+        long bonus = HordeSightHandler.computeBonus(day);
 
         send(source, Component.literal("Horde Sight: ").withStyle(ChatFormatting.WHITE)
                 .append(Component.literal("Increase Over Time: ").withStyle(ChatFormatting.WHITE))
@@ -101,22 +88,6 @@ public class EhtCommandHandler {
                         .withStyle(ChatFormatting.AQUA))
                 .append(Component.literal(". Sight Range Bonus: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(String.valueOf(bonus)).withStyle(ChatFormatting.AQUA)));
-    }
-
-    private static long followTime(long day) {
-        int base = EnhancedHordesTweaksConfig.hordeDeterminationFollowTimeMinutes;
-        if (base <= 0) return 0;
-        return scaled(base,
-                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseOverTime,
-                EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation,
-                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseIntervalDays,
-                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseAmount, 1440, day);
-    }
-
-    private static long scaled(long base, boolean overTime, int daysBefore, int interval, int amount, long max, long day) {
-        if (!overTime || day < daysBefore) return Math.min(base, max);
-        long increments = (day - daysBefore) / Math.max(1, interval);
-        return Math.min(base + increments * amount, max);
     }
 
     private static void feature(CommandSourceStack source, String name, boolean enabled, long day,

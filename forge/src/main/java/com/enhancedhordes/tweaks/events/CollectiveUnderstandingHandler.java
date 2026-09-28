@@ -21,7 +21,7 @@ import java.util.UUID;
 public class CollectiveUnderstandingHandler {
 
     private static final int CHECK_INTERVAL_TICKS = 20;
-    private static final double MAX_RANGE = 128.0;
+    private static final long MAX_RANGE = 128;
 
     @SubscribeEvent
     //? if >=1.19.2 {
@@ -42,7 +42,7 @@ public class CollectiveUnderstandingHandler {
         if (observer.getTarget() instanceof Player) return;
         if (determination && HordeDeterminationHandler.getFollowedPlayer(observer.getUUID()) != null) return;
 
-        final double range = computeRange(level);
+        final double range = computeRange(EnhancedHordesTweaksConfig.day(level));
         final double rangeSq = range * range;
         AABB box = observer.getBoundingBox().inflate(range);
 
@@ -78,17 +78,11 @@ public class CollectiveUnderstandingHandler {
         return null;
     }
 
-    private static double computeRange(ServerLevel level) {
-        double range = EnhancedHordesTweaksConfig.collectiveUnderstandingRange;
-        if (EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseOverTime) {
-            int threshold = EnhancedHordesTweaksConfig.collectiveUnderstandingDaysBeforeActivation;
-            long daysElapsed = level.getGameTime() / 24000L;
-            if (daysElapsed >= threshold) {
-                int interval = Math.max(1, EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseIntervalDays);
-                long increments = (daysElapsed - threshold) / interval;
-                range += increments * EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseAmount;
-            }
-        }
-        return Math.min(range, MAX_RANGE);
+    public static long computeRange(long day) {
+        return EnhancedHordesTweaksConfig.scaled(EnhancedHordesTweaksConfig.collectiveUnderstandingRange,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseOverTime,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingDaysBeforeActivation,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseAmount, MAX_RANGE, day);
     }
 }

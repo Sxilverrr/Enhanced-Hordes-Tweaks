@@ -10,6 +10,7 @@ base {
     archivesName.set("${mod.id}-common")
 }
 
+architectury.injectInjectables = false
 architectury.common(stonecutter.tree.branches.mapNotNull {
     if (stonecutter.current.project !in it) null
     else it.project.prop("loom.platform")

@@ -19,7 +19,7 @@ import net.minecraftforge.fml.common.Mod;
 public class HeightenedSenseHandler {
 
     private static final int CHECK_INTERVAL_TICKS = 20;
-    private static final double MAX_RANGE = 128.0;
+    private static final long MAX_RANGE = 128;
 
     @SubscribeEvent
     //? if >=1.19.2 {
@@ -39,7 +39,7 @@ public class HeightenedSenseHandler {
         LivingEntity current = mob.getTarget();
         if (current != null && current.isAlive()) return;
 
-        double range = computeRange(level);
+        double range = computeRange(EnhancedHordesTweaksConfig.day(level));
         AABB box = mob.getBoundingBox().inflate(range);
         double rangeSq = range * range;
 
@@ -58,8 +58,7 @@ public class HeightenedSenseHandler {
 
         if (best == null && EnhancedHordesTweaksConfig.enableUniversalHostility) {
             for (LivingEntity candidate : level.getEntitiesOfClass(LivingEntity.class, box,
-                    c -> c != mob && c.isAlive() && !UniversalHostilityHandler.isProtected(c)
-                            && ConfigCache.isHostilityTarget(c.getType()))) {
+                    c -> c != mob && c.isAlive() && UniversalHostilityHandler.isHostilityTarget(c))) {
                 double d = mob.distanceToSqr(candidate);
                 if (d <= rangeSq && d < bestDistSq) {
                     best = candidate;
@@ -73,17 +72,11 @@ public class HeightenedSenseHandler {
         }
     }
 
-    private static double computeRange(ServerLevel level) {
-        double range = EnhancedHordesTweaksConfig.heightenedSenseRange;
-        if (EnhancedHordesTweaksConfig.heightenedSenseIncreaseOverTime) {
-            int threshold = EnhancedHordesTweaksConfig.heightenedSenseDaysBeforeActivation;
-            long daysElapsed = level.getGameTime() / 24000L;
-            if (daysElapsed >= threshold) {
-                int interval = Math.max(1, EnhancedHordesTweaksConfig.heightenedSenseIncreaseIntervalDays);
-                long increments = (daysElapsed - threshold) / interval;
-                range += increments * EnhancedHordesTweaksConfig.heightenedSenseIncreaseAmount;
-            }
-        }
-        return Math.min(range, MAX_RANGE);
+    public static long computeRange(long day) {
+        return EnhancedHordesTweaksConfig.scaled(EnhancedHordesTweaksConfig.heightenedSenseRange,
+                EnhancedHordesTweaksConfig.heightenedSenseIncreaseOverTime,
+                EnhancedHordesTweaksConfig.heightenedSenseDaysBeforeActivation,
+                EnhancedHordesTweaksConfig.heightenedSenseIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.heightenedSenseIncreaseAmount, MAX_RANGE, day);
     }
 }

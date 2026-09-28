@@ -16,14 +16,14 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import java.util.List;
 import java.util.UUID;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class CollectiveUnderstandingHandler {
 
     private static final int CHECK_INTERVAL_TICKS = 20;
-    private static final double MAX_RANGE = 128.0;
+    private static final long MAX_RANGE = 128;
 
     @SubscribeEvent
-    public static void onLivingTick(EntityTickEvent.Post event) {
+    public static void onLivingTick(EntityTickEvent.Pre event) {
         if (!EnhancedHordesTweaksConfig.enableCollectiveUnderstanding) return;
         if (!(event.getEntity() instanceof Mob observer)) return;
         if (!(observer.level() instanceof ServerLevel level)) return;
@@ -37,7 +37,7 @@ public class CollectiveUnderstandingHandler {
         if (observer.getTarget() instanceof Player) return;
         if (determination && HordeDeterminationHandler.getFollowedPlayer(observer.getUUID()) != null) return;
 
-        final double range = computeRange(level);
+        final double range = computeRange(EnhancedHordesTweaksConfig.day(level));
         final double rangeSq = range * range;
         AABB box = observer.getBoundingBox().inflate(range);
 
@@ -73,17 +73,11 @@ public class CollectiveUnderstandingHandler {
         return null;
     }
 
-    private static double computeRange(ServerLevel level) {
-        double range = EnhancedHordesTweaksConfig.collectiveUnderstandingRange;
-        if (EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseOverTime) {
-            int threshold = EnhancedHordesTweaksConfig.collectiveUnderstandingDaysBeforeActivation;
-            long daysElapsed = level.getGameTime() / 24000L;
-            if (daysElapsed >= threshold) {
-                int interval = Math.max(1, EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseIntervalDays);
-                long increments = (daysElapsed - threshold) / interval;
-                range += increments * EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseAmount;
-            }
-        }
-        return Math.min(range, MAX_RANGE);
+    public static long computeRange(long day) {
+        return EnhancedHordesTweaksConfig.scaled(EnhancedHordesTweaksConfig.collectiveUnderstandingRange,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseOverTime,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingDaysBeforeActivation,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.collectiveUnderstandingIncreaseAmount, MAX_RANGE, day);
     }
 }

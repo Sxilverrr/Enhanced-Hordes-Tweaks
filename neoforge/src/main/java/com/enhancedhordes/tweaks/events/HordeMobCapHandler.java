@@ -16,7 +16,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class HordeMobCapHandler {
 
     private static final int COUNT_CACHE_TTL_TICKS = 20;
@@ -34,6 +34,7 @@ public class HordeMobCapHandler {
         int cap = EnhancedHordesTweaksConfig.hordeMobCap;
         if (cap <= 0) return;
         if (event.getLevel().isClientSide()) return;
+        if (event.loadedFromDisk()) return;
         if (!(event.getEntity() instanceof Mob mob)) return;
         if (!ConfigCache.isHordeMob(mob.getType())) return;
         if (!(mob.level() instanceof ServerLevel level)) return;

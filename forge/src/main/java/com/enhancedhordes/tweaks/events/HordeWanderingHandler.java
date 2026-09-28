@@ -28,7 +28,6 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -97,7 +96,8 @@ public class HordeWanderingHandler {
         /*if (!(event.world instanceof ServerLevel serverLevel)) return;*/
         //?}
         if (!EnhancedHordesTweaksConfig.enableHordeWandering
-                || !isDayGateOpen(serverLevel)) {
+                || !EnhancedHordesTweaksConfig.daysElapsedReached(serverLevel,
+                        EnhancedHordesTweaksConfig.hordeWanderingDaysBeforeActivation)) {
             STATE.remove(serverLevel.dimension());
             return;
         }
@@ -130,11 +130,6 @@ public class HordeWanderingHandler {
         if (state == null) return null;
         if (state.size < EnhancedHordesTweaksConfig.hordeGroupMinimum) return null;
         return state;
-    }
-
-    private static boolean isDayGateOpen(ServerLevel level) {
-        int threshold = EnhancedHordesTweaksConfig.hordeWanderingDaysBeforeActivation;
-        return EnhancedHordesTweaksConfig.daysElapsedReached(level, threshold);
     }
 
     private static void rebuild(ServerLevel level) {
@@ -237,11 +232,6 @@ public class HordeWanderingHandler {
             for (int idx : indices) {
                 next.mobToGroup.put(mobs.get(idx).getUUID(), state.groupId);
             }
-        }
-
-        Iterator<Map.Entry<UUID, GroupState>> it = next.groupsById.entrySet().iterator();
-        while (it.hasNext()) {
-            if (it.next().getValue().size == 0) it.remove();
         }
 
         STATE.put(level.dimension(), next);

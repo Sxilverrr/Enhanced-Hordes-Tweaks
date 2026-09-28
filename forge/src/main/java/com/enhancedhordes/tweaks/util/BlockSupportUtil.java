@@ -3,6 +3,11 @@ package com.enhancedhordes.tweaks.util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+//? if >=1.19.2 {
+import net.minecraft.world.entity.ai.village.poi.PoiTypes;
+//?} else {
+/*import net.minecraft.world.entity.ai.village.poi.PoiType;*/
+//?}
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,18 +22,17 @@ public final class BlockSupportUtil {
     public static boolean wouldOrphanNeighbor(ServerLevel level, BlockPos pos, BlockState current) {
         BlockPos ownPartner = getDoubleBlockPartner(current, pos);
 
-        if (current.hasBlockEntity()) {
-            for (Direction dir : Direction.values()) {
-                BlockPos neighborPos = pos.relative(dir);
-                if (ownPartner != null && neighborPos.equals(ownPartner)) continue;
-                BlockState neighborState = level.getBlockState(neighborPos);
-                if (neighborState.isAir()) continue;
-                if (dir == Direction.UP && isTwoBlockObject(neighborState)) return true;
-            }
-            return false;
+        //? if >=1.19.2 {
+        boolean poi = PoiTypes.forState(current).isPresent();
+        //?} else {
+        /*boolean poi = PoiType.forState(current).isPresent();*/
+        //?}
+        if (current.hasBlockEntity() || poi) {
+            BlockPos above = pos.above();
+            return !above.equals(ownPartner) && isTwoBlockObject(level.getBlockState(above));
         }
 
-        int silentFlags = Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
+        int silentFlags = Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS | Block.UPDATE_MOVE_BY_PISTON;
         level.setBlock(pos, Blocks.AIR.defaultBlockState(), silentFlags);
         try {
             for (Direction dir : Direction.values()) {

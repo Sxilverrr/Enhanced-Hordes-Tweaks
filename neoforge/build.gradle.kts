@@ -47,7 +47,7 @@ dependencies {
     mappings(loom.officialMojangMappings())
     "neoForge"("net.neoforged:neoforge:${common.mod.dep("neoforge_loader")}")
 
-    modCompileOnly("curse.maven:enhanced-hordes-899308:8362707")
+    modCompileOnly(common.mod.dep("base_mod"))
 
     commonBundle(project(common.path, "namedElements")) { isTransitive = false }
     shadowBundle(project(common.path, "transformProductionNeoForge")) { isTransitive = false }

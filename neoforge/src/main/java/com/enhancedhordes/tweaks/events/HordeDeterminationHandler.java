@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class HordeDeterminationHandler {
 
     private static final Map<UUID, DeterminationRecord> RECORDS = new ConcurrentHashMap<>();
@@ -46,7 +46,7 @@ public class HordeDeterminationHandler {
     }
 
     @SubscribeEvent
-    public static void onLivingTick(EntityTickEvent.Post event) {
+    public static void onLivingTick(EntityTickEvent.Pre event) {
         if (!(event.getEntity() instanceof Mob mob)) return;
         if (!EnhancedHordesTweaksConfig.enableHordeDetermination) {
             if (!FORCED_PERSISTENCE.isEmpty() && FORCED_PERSISTENCE.contains(mob.getUUID())) {
@@ -61,8 +61,9 @@ public class HordeDeterminationHandler {
         if (FeatureGate.blocked(mob)) return;
 
         long gameTime = level.getGameTime();
-        int maxDistance = computeFollowDistance(level);
-        int maxTimeMinutes = computeFollowTimeMinutes(level);
+        long day = EnhancedHordesTweaksConfig.day(level);
+        int maxDistance = computeFollowDistance(day);
+        int maxTimeMinutes = computeFollowTimeMinutes(day);
         long maxTicks = (long) maxTimeMinutes * 60L * 20L;
 
         LivingEntity target = mob.getTarget();
@@ -149,7 +150,7 @@ public class HordeDeterminationHandler {
 
         ServerLevel overworld = event.getServer().overworld();
         long gameTime = overworld.getGameTime();
-        int maxTimeMinutes = computeFollowTimeMinutes(overworld);
+        int maxTimeMinutes = computeFollowTimeMinutes(EnhancedHordesTweaksConfig.day(overworld));
         long maxTicks = (long) maxTimeMinutes * 60L * 20L;
 
         Iterator<Map.Entry<UUID, DeterminationRecord>> it = RECORDS.entrySet().iterator();
@@ -161,32 +162,22 @@ public class HordeDeterminationHandler {
         }
     }
 
-    private static int computeFollowDistance(ServerLevel level) {
-        int base = EnhancedHordesTweaksConfig.hordeDeterminationFollowDistance;
-        if (!EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseOverTime) return base;
-        long increments = incrementsSinceActivation(level,
+    public static int computeFollowDistance(long day) {
+        return (int) EnhancedHordesTweaksConfig.scaled(EnhancedHordesTweaksConfig.hordeDeterminationFollowDistance,
+                EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseOverTime,
                 EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation,
-                EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseIntervalDays);
-        long distance = base + increments * (long) EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseAmount;
-        return (int) Math.min(distance, 10000L);
+                EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.hordeDeterminationDistanceIncreaseAmount, 10000, day);
     }
 
-    private static int computeFollowTimeMinutes(ServerLevel level) {
+    public static int computeFollowTimeMinutes(long day) {
         int base = EnhancedHordesTweaksConfig.hordeDeterminationFollowTimeMinutes;
         if (base <= 0) return base;
-        if (!EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseOverTime) return base;
-        long increments = incrementsSinceActivation(level,
+        return (int) EnhancedHordesTweaksConfig.scaled(base,
+                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseOverTime,
                 EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation,
-                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseIntervalDays);
-        long minutes = base + increments * (long) EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseAmount;
-        return (int) Math.min(minutes, 1440L);
-    }
-
-    private static long incrementsSinceActivation(ServerLevel level, int thresholdDays, int intervalDays) {
-        long daysElapsed = level.getGameTime() / 24000L;
-        if (daysElapsed < thresholdDays) return 0L;
-        int interval = Math.max(1, intervalDays);
-        return (daysElapsed - thresholdDays) / interval;
+                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseIntervalDays,
+                EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseAmount, 1440, day);
     }
 
     private static void forcePersistence(Mob mob) {

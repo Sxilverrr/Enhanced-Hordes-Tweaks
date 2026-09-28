@@ -3,10 +3,10 @@ package com.enhancedhordes.tweaks.events;
 import com.enhancedhordes.tweaks.EnhancedHordesTweaksMod;
 import com.enhancedhordes.tweaks.config.ConfigCache;
 import com.enhancedhordes.tweaks.config.EnhancedHordesTweaksConfig;
+import com.enhancedhordes.tweaks.util.VersionCompat;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
-import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.monster.Drowned;
 //? if >=1.19.2 {
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
@@ -35,12 +35,16 @@ public class HordeSwimmingHandler {
         if (!ConfigCache.isHordeMob(mob.getType())) return;
         if (mob instanceof Drowned) return;
 
-        if (mob.getNavigation() instanceof GroundPathNavigation gpn) {
-            gpn.setCanFloat(true);
-        }
         for (WrappedGoal wrapped : mob.goalSelector.getAvailableGoals()) {
             if (wrapped.getGoal() instanceof FloatGoal) return;
         }
-        mob.goalSelector.addGoal(0, new FloatGoal(mob));
+        mob.goalSelector.addGoal(0, new FloatGoal(mob) {
+            @Override
+            public boolean canUse() {
+                boolean active = EnhancedHordesTweaksConfig.daysElapsedReached(VersionCompat.level(mob), EnhancedHordesTweaksConfig.featuresDaysBeforeActivation);
+                mob.getNavigation().setCanFloat(active);
+                return active && super.canUse();
+            }
+        });
     }
 }

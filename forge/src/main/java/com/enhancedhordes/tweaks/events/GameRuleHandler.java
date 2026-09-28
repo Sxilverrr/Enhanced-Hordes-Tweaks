@@ -33,6 +33,7 @@ import com.mojang.logging.LogUtils;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 
@@ -42,7 +43,7 @@ public class GameRuleHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static final Set<String> LOCKED_GAMERULES = Set.of(
-            "hordeStacking", "hordeMultiplying", "ironGolemRegenPower"
+            "hordeStacking", "hordeMultiplying", "ironGolemRegenPower", "hordeSmashingPower"
     );
 
     @Nullable private static final Field COMMAND_NODE_CHILDREN;
@@ -52,6 +53,7 @@ public class GameRuleHandler {
     @Nullable private static GameRules.Key<GameRules.BooleanValue> grHordeStacking;
     @Nullable private static GameRules.Key<GameRules.BooleanValue> grHordeMultiplying;
     @Nullable private static GameRules.Key<GameRules.IntegerValue> grIronGolemRegenPower;
+    @Nullable private static GameRules.Key<GameRules.IntegerValue> grHordeSmashingPower;
 
     static {
         Field children = null;
@@ -89,6 +91,9 @@ public class GameRuleHandler {
         } catch (Throwable t) {
             LOGGER.error("[Enhanced Hordes Tweaks] Failed to resolve Enhanced Hordes game rule keys: {}", t.getMessage());
         }
+        try {
+            grHordeSmashingPower = (GameRules.Key<GameRules.IntegerValue>) cls.getField("HORDE_SMASHING_POWER").get(null);
+        } catch (Throwable ignored) {}
     }
 
     @SubscribeEvent
@@ -202,20 +207,22 @@ public class GameRuleHandler {
 
         GameRules rules = level.getGameRules();
 
-        rules.getRule(grHordeStacking)
-                .set(EnhancedHordesTweaksConfig.enableHordeStacking, null);
-        rules.getRule(grHordeMultiplying)
-                .set(EnhancedHordesTweaksConfig.enableHordeMultiplying, null);
         rules.getRule(grIronGolemRegenPower)
                 .set(EnhancedHordesTweaksConfig.enableIronGolemRegen
                         ? EnhancedHordesTweaksConfig.ironGolemRegenPower : 0, null);
+        if (grHordeSmashingPower != null) {
+            rules.getRule(grHordeSmashingPower).set(EnhancedHordesTweaksConfig.hordeSmashingPower, null);
+        }
+        lastStackingValue = null;
         lastMultiplyingValue = null;
+        syncFeatureRules(level);
     }
 
+    private static Boolean lastStackingValue = null;
     private static Boolean lastMultiplyingValue = null;
 
     @SubscribeEvent
-    public static void onServerTickMultiplying(TickEvent.ServerTickEvent event) {
+    public static void onServerTickFeatureRules(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         //? if >=1.19.2 {
         if (event.getServer().getTickCount() % 20 != 0) return;
@@ -224,18 +231,28 @@ public class GameRuleHandler {
         //?}
 
         resolveGameRuleKeys();
-        if (grHordeMultiplying == null) return;
 
         //? if >=1.19.2 {
         ServerLevel overworld = event.getServer().overworld();
         //?} else {
         /*ServerLevel overworld = ServerLifecycleHooks.getCurrentServer().overworld();*/
         //?}
-        boolean desired = EnhancedHordesTweaksConfig.enableHordeMultiplying
-                && GameStagesCompat.anyPlayerHasStage(overworld, EnhancedHordesTweaksConfig.hordeMultiplyingStage);
-        if (lastMultiplyingValue != null && lastMultiplyingValue == desired) return;
+        syncFeatureRules(overworld);
+    }
 
-        overworld.getGameRules().getRule(grHordeMultiplying).set(desired, null);
-        lastMultiplyingValue = desired;
+    private static void syncFeatureRules(ServerLevel overworld) {
+        if (grHordeStacking == null || grHordeMultiplying == null) return;
+        boolean active = EnhancedHordesTweaksConfig.daysElapsedReached(overworld, EnhancedHordesTweaksConfig.featuresDaysBeforeActivation);
+        boolean stacking = EnhancedHordesTweaksConfig.enableHordeStacking && active;
+        boolean multiplying = EnhancedHordesTweaksConfig.enableHordeMultiplying && active
+                && GameStagesCompat.anyPlayerHasStage(overworld, EnhancedHordesTweaksConfig.hordeMultiplyingStage);
+        if (!Objects.equals(lastStackingValue, stacking)) {
+            overworld.getGameRules().getRule(grHordeStacking).set(stacking, null);
+            lastStackingValue = stacking;
+        }
+        if (!Objects.equals(lastMultiplyingValue, multiplying)) {
+            overworld.getGameRules().getRule(grHordeMultiplying).set(multiplying, null);
+            lastMultiplyingValue = multiplying;
+        }
     }
 }

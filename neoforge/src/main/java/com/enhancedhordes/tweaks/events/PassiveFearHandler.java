@@ -12,16 +12,12 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 
-import java.util.function.Predicate;
-
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class PassiveFearHandler {
 
     private static final float AVOID_DISTANCE = 8.0f;
     private static final double WALK_SPEED = 1.0;
     private static final double SPRINT_SPEED = 1.3;
-
-    private enum FearKind { PASSIVE, NEUTRAL, HOSTILE }
 
     @SubscribeEvent
     public static void onEntityJoin(EntityJoinLevelEvent event) {
@@ -30,39 +26,18 @@ public class PassiveFearHandler {
 
         if (!ConfigCache.isHostilityTarget(mob.getType())) return;
 
-        FearKind kind;
-        if (mob instanceof Enemy) {
-            kind = FearKind.HOSTILE;
-        } else if (mob instanceof NeutralMob) {
-            kind = FearKind.NEUTRAL;
-        } else {
-            kind = FearKind.PASSIVE;
-        }
-
-        Predicate<LivingEntity> predicate = candidate -> isActiveThreat(candidate, kind);
-        mob.goalSelector.addGoal(2, new AvoidEntityGoal<>(
-                mob,
-                LivingEntity.class,
-                predicate,
-                AVOID_DISTANCE,
-                WALK_SPEED,
-                SPRINT_SPEED,
-                predicate));
+        mob.goalSelector.addGoal(2, new AvoidEntityGoal<>(mob, LivingEntity.class,
+                AVOID_DISTANCE, WALK_SPEED, SPRINT_SPEED, candidate -> isActiveThreat(candidate, mob)));
     }
 
-    private static boolean isActiveThreat(LivingEntity candidate, FearKind kind) {
+    private static boolean isActiveThreat(LivingEntity candidate, PathfinderMob mob) {
         if (!EnhancedHordesTweaksConfig.enableUniversalHostility) return false;
-        if (!isFearEnabledFor(kind)) return false;
+        boolean fearEnabled = mob instanceof Enemy ? EnhancedHordesTweaksConfig.enableHostileFear
+                : mob instanceof NeutralMob ? EnhancedHordesTweaksConfig.enableNeutralFear
+                : EnhancedHordesTweaksConfig.enablePassiveFear;
+        if (!fearEnabled) return false;
         if (!EnhancedHordesTweaksConfig.daysElapsedReached(
                 candidate.level(), EnhancedHordesTweaksConfig.universalHostilityDaysBeforeActivation)) return false;
         return ConfigCache.isHostileMob(candidate.getType());
-    }
-
-    private static boolean isFearEnabledFor(FearKind kind) {
-        return switch (kind) {
-            case PASSIVE -> EnhancedHordesTweaksConfig.enablePassiveFear;
-            case NEUTRAL -> EnhancedHordesTweaksConfig.enableNeutralFear;
-            case HOSTILE -> EnhancedHordesTweaksConfig.enableHostileFear;
-        };
     }
 }

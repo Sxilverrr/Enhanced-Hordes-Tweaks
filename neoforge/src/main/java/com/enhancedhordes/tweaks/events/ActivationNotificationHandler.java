@@ -2,9 +2,7 @@ package com.enhancedhordes.tweaks.events;
 
 import com.enhancedhordes.tweaks.EnhancedHordesTweaksMod;
 import com.enhancedhordes.tweaks.config.EnhancedHordesTweaksConfig;
-import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -17,7 +15,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.minecraft.core.registries.BuiltInRegistries;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class ActivationNotificationHandler {
 
     private static long lastDay = -1;
@@ -94,11 +92,7 @@ public class ActivationNotificationHandler {
         SoundEvent sound = resolveSound();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             player.sendSystemMessage(text);
-            if (sound != null) {
-                player.connection.send(new ClientboundSoundPacket(
-                        Holder.direct(sound), SoundSource.MASTER,
-                        player.getX(), player.getY(), player.getZ(), 1.0f, 1.0f, 0L));
-            }
+            if (sound != null) player.playNotifySound(sound, SoundSource.MASTER, 1.0f, 1.0f);
         }
     }
 
@@ -110,20 +104,6 @@ public class ActivationNotificationHandler {
     }
 
     private static Component format(String message) {
-        StringBuilder sb = new StringBuilder(message.length());
-        for (int i = 0; i < message.length(); i++) {
-            char c = message.charAt(i);
-            if (c == '&' && i + 1 < message.length() && isFormatCode(message.charAt(i + 1))) {
-                sb.append('§');
-            } else {
-                sb.append(c);
-            }
-        }
-        return Component.literal(sb.toString());
-    }
-
-    private static boolean isFormatCode(char c) {
-        c = Character.toLowerCase(c);
-        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || "klmnor".indexOf(c) >= 0;
+        return Component.literal(message.replaceAll("(?i)&([0-9a-fk-or])", "§$1"));
     }
 }

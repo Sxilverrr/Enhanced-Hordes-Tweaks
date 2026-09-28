@@ -51,6 +51,7 @@ public class HordeMobCapHandler {
         //?} else {
         /*if (event.getWorld().isClientSide()) return;*/
         //?}
+        if (event.loadedFromDisk()) return;
         if (!(event.getEntity() instanceof Mob mob)) return;
         if (!ConfigCache.isHordeMob(mob.getType())) return;
         if (!(VersionCompat.level(mob) instanceof ServerLevel level)) return;

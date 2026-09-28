@@ -60,7 +60,6 @@ public class BlockRegenerationHandler {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
         if (!EnhancedHordesTweaksConfig.enableBlockRegeneration) return;
-        if (event.isCanceled()) return;
         //? if >=1.19.2 {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         //?} else {
@@ -69,9 +68,7 @@ public class BlockRegenerationHandler {
 
         BlockPos pos = event.getPos().immutable();
         LevelRegenData data = getOrCreate(level.dimension());
-        data.regenQueue.remove(pos);
-        data.waitingForClear.remove(pos);
-        data.pausedRegen.remove(pos);
+        forgetQueued(data, pos);
         data.playerBroken.add(pos);
 
         while (data.playerBroken.size() > MAX_PLAYER_BROKEN) {
@@ -86,7 +83,6 @@ public class BlockRegenerationHandler {
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (!EnhancedHordesTweaksConfig.enableBlockRegeneration) return;
         if (!EnhancedHordesTweaksConfig.cancelRegenOnPlayerPlace) return;
-        if (event.isCanceled()) return;
         if (!(event.getEntity() instanceof Player)) return;
         //? if >=1.19.2 {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
@@ -99,21 +95,9 @@ public class BlockRegenerationHandler {
         double radiusSq = (double) radius * radius;
         LevelRegenData data = getOrCreate(level.dimension());
 
-        List<BlockPos> toRemove = new ArrayList<>();
-        for (BlockPos pos : data.regenQueue.keySet()) {
-            if (placePos.distSqr(pos) <= radiusSq) toRemove.add(pos);
-        }
-        for (BlockPos pos : data.waitingForClear.keySet()) {
-            if (placePos.distSqr(pos) <= radiusSq) toRemove.add(pos);
-        }
-        for (BlockPos pos : data.pausedRegen.keySet()) {
-            if (placePos.distSqr(pos) <= radiusSq) toRemove.add(pos);
-        }
-        for (BlockPos pos : toRemove) {
-            data.regenQueue.remove(pos);
-            data.waitingForClear.remove(pos);
-            data.pausedRegen.remove(pos);
-        }
+        data.regenQueue.keySet().removeIf(pos -> placePos.distSqr(pos) <= radiusSq);
+        data.waitingForClear.keySet().removeIf(pos -> placePos.distSqr(pos) <= radiusSq);
+        data.pausedRegen.keySet().removeIf(pos -> placePos.distSqr(pos) <= radiusSq);
     }
 
     @SubscribeEvent
@@ -128,7 +112,7 @@ public class BlockRegenerationHandler {
         if (data == null) return;
 
         PistonStructureResolver resolver = event.getStructureHelper();
-        if (resolver == null) return;
+        if (resolver == null || !resolver.resolve()) return;
 
         Direction pushDirection = resolver.getPushDirection();
         for (BlockPos pos : resolver.getToPush()) {
@@ -142,9 +126,7 @@ public class BlockRegenerationHandler {
 
     private static void forgetPosition(LevelRegenData data, BlockPos pos) {
         data.prevSnapshot.remove(pos);
-        data.regenQueue.remove(pos);
-        data.waitingForClear.remove(pos);
-        data.pausedRegen.remove(pos);
+        forgetQueued(data, pos);
     }
 
     @SubscribeEvent
@@ -221,18 +203,16 @@ public class BlockRegenerationHandler {
         }
 
         Map<BlockPos, BlockState> newSnapshot = new HashMap<>();
-        if (mobPositions != null) {
-            BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-            for (BlockPos mobPos : mobPositions) {
-                for (int dx = -SCAN_RADIUS; dx <= SCAN_RADIUS; dx++) {
-                    for (int dy = -2; dy <= 2; dy++) {
-                        for (int dz = -SCAN_RADIUS; dz <= SCAN_RADIUS; dz++) {
-                            cursor.set(mobPos.getX() + dx, mobPos.getY() + dy, mobPos.getZ() + dz);
-                            if (newSnapshot.containsKey(cursor)) continue;
-                            BlockState state = level.getBlockState(cursor);
-                            if (!state.isAir() && ConfigCache.isHordeBreakable(state)) {
-                                newSnapshot.put(cursor.immutable(), state);
-                            }
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (BlockPos mobPos : mobPositions) {
+            for (int dx = -SCAN_RADIUS; dx <= SCAN_RADIUS; dx++) {
+                for (int dy = -2; dy <= 2; dy++) {
+                    for (int dz = -SCAN_RADIUS; dz <= SCAN_RADIUS; dz++) {
+                        cursor.set(mobPos.getX() + dx, mobPos.getY() + dy, mobPos.getZ() + dz);
+                        if (newSnapshot.containsKey(cursor)) continue;
+                        BlockState state = level.getBlockState(cursor);
+                        if (!state.isAir() && ConfigCache.isHordeBreakable(state)) {
+                            newSnapshot.put(cursor.immutable(), state);
                         }
                     }
                 }
@@ -311,10 +291,10 @@ public class BlockRegenerationHandler {
         }
     }
 
-    private static void cancelCompanionFromAllQueues(LevelRegenData data, BlockPos companionPos) {
-        data.regenQueue.remove(companionPos);
-        data.waitingForClear.remove(companionPos);
-        data.pausedRegen.remove(companionPos);
+    private static void forgetQueued(LevelRegenData data, BlockPos pos) {
+        data.regenQueue.remove(pos);
+        data.waitingForClear.remove(pos);
+        data.pausedRegen.remove(pos);
     }
 
     private static void placeCompanionFromQueues(ServerLevel level, LevelRegenData data,
@@ -393,7 +373,7 @@ public class BlockRegenerationHandler {
                 continue;
             }
 
-            if (mobPositions == null || !isMobNearby(pos, mobPositions, radiusSq)) {
+            if (!isMobNearby(pos, mobPositions, radiusSq)) {
                 long regenTime = level.getGameTime() + computeRegenDelay(level, pos, entry.getValue());
                 data.regenQueue.put(pos, new PendingRegen(entry.getValue(), regenTime));
                 iter.remove();
@@ -401,7 +381,7 @@ public class BlockRegenerationHandler {
         }
 
         for (BlockPos cPos : companionsToCancel) {
-            cancelCompanionFromAllQueues(data, cPos);
+            forgetQueued(data, cPos);
         }
     }
 
@@ -425,7 +405,7 @@ public class BlockRegenerationHandler {
                 continue;
             }
 
-            if (mobPositions == null || !isMobNearby(pos, mobPositions, radiusSq)) {
+            if (!isMobNearby(pos, mobPositions, radiusSq)) {
                 long regenTime = level.getGameTime() + entry.getValue().remainingTicks();
                 data.regenQueue.put(pos, new PendingRegen(entry.getValue().blockState(), regenTime));
                 iter.remove();
@@ -433,7 +413,7 @@ public class BlockRegenerationHandler {
         }
 
         for (BlockPos cPos : companionsToCancel) {
-            cancelCompanionFromAllQueues(data, cPos);
+            forgetQueued(data, cPos);
         }
     }
 
@@ -526,7 +506,7 @@ public class BlockRegenerationHandler {
         }
 
         for (BlockPos cPos : companionsToCancel) {
-            cancelCompanionFromAllQueues(data, cPos);
+            forgetQueued(data, cPos);
         }
 
         if (companionsToPlace != null) {

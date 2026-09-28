@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.WeakHashMap;
 
-@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = EnhancedHordesTweaksMod.MODID)
 public class IronGolemHandler {
 
     private static final Random RANDOM = new Random();
@@ -29,34 +29,23 @@ public class IronGolemHandler {
 
     private static final WeakHashMap<IronGolem, Long> lastHurtGameTick = new WeakHashMap<>();
 
-    private static boolean arrowResistanceDecision = false;
-
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingHurtMultiHit(LivingIncomingDamageEvent event) {
         if (EnhancedHordesTweaksConfig.enableIronGolemMultiHit) return;
-        if (event.isCanceled()) return;
         if (!(event.getSource().getEntity() instanceof IronGolem)) return;
         if (Math.abs(event.getAmount() - 5.0f) < 0.01f) {
             event.setCanceled(true);
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void onLivingHurtArrowResistanceDecide(LivingIncomingDamageEvent event) {
-        if (!(event.getEntity() instanceof IronGolem)) return;
-        if (!(event.getSource().getDirectEntity() instanceof AbstractArrow)) return;
-        if (!EnhancedHordesTweaksConfig.enableIronGolemArrowResistance) {
-            arrowResistanceDecision = false;
-            return;
-        }
-        arrowResistanceDecision = RANDOM.nextInt(100) < EnhancedHordesTweaksConfig.ironGolemArrowResistancePercent;
-    }
-
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingHurtArrowResistance(LivingIncomingDamageEvent event) {
+        if (!EnhancedHordesTweaksConfig.enableIronGolemArrowResistance) return;
         if (!(event.getEntity() instanceof IronGolem)) return;
         if (!(event.getSource().getDirectEntity() instanceof AbstractArrow)) return;
-        event.setCanceled(arrowResistanceDecision);
+        if (RANDOM.nextInt(100) < EnhancedHordesTweaksConfig.ironGolemArrowResistancePercent) {
+            event.setCanceled(true);
+        }
     }
 
     @SubscribeEvent
@@ -100,7 +89,6 @@ public class IronGolemHandler {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingHurtGolemCooldown(LivingIncomingDamageEvent event) {
         if (!EnhancedHordesTweaksConfig.enableIronGolemRegen) return;
-        if (event.isCanceled()) return;
         if (!(event.getEntity() instanceof IronGolem golem)) return;
         if (golem.level() instanceof ServerLevel serverLevel) {
             lastHurtGameTick.put(golem, serverLevel.getGameTime());
@@ -127,7 +115,6 @@ public class IronGolemHandler {
     public static void onVillagerHurt(LivingIncomingDamageEvent event) {
         if (!EnhancedHordesTweaksConfig.enableIronGolemVillagerDefender) return;
         if (!(event.getEntity() instanceof Villager villager)) return;
-        if (event.isCanceled()) return;
         Entity attackerEntity = event.getSource().getEntity();
         if (!(attackerEntity instanceof LivingEntity attacker)) return;
         if (!(villager.level() instanceof ServerLevel serverLevel)) return;
