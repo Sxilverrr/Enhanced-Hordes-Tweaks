@@ -1,5 +1,6 @@
 package com.enhancedhordes.tweaks.mixin;
 
+import com.enhancedhordes.tweaks.config.ConfigCache;
 import com.enhancedhordes.tweaks.config.EnhancedHordesTweaksConfig;
 import com.enhancedhordes.tweaks.util.BlockSupportUtil;
 import net.minecraft.core.BlockPos;
@@ -9,6 +10,9 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -17,7 +21,9 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.Event;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -117,6 +123,44 @@ public class HordeTickMixin {
         return level.destroyBlock(pos, drop);
     }
 
+    @Redirect(method = EXECUTE,
+        at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/level/GameRules;getBoolean(Lnet/minecraft/world/level/GameRules$Key;)Z",
+            remap = false),
+        require = 1)
+    private static boolean redirectGameRule(GameRules rules, GameRules.Key<GameRules.BooleanValue> key) {
+        if (!rules.getBoolean(key)) return false;
+        if (!(currentEntity() instanceof Mob mob)) return true;
+        LivingEntity target = mob.getTarget();
+        return switch (key.getId()) {
+            case "hordeStacking" -> target != null || !EnhancedHordesTweaksConfig.hordeStackingRequiresTarget;
+            case "hordeMultiplying" -> target != null && canMultiply(mob, target);
+            default -> true;
+        };
+    }
+
+    private static boolean canMultiply(Mob mob, LivingEntity target) {
+        Level level = mob.level();
+        int maxDistance = EnhancedHordesTweaksConfig.hordeMultiplyingMaxTargetDistance;
+        int maxNearby = EnhancedHordesTweaksConfig.hordeMultiplyingMaxNearbyMobs;
+        return (target instanceof Player || !EnhancedHordesTweaksConfig.hordeMultiplyingRequiresPlayerTarget)
+                && (maxDistance == 0 || mob.distanceToSqr(target) <= (double) maxDistance * maxDistance)
+                && (!EnhancedHordesTweaksConfig.hordeMultiplyingNightOnly || !level.isDay())
+                && (!EnhancedHordesTweaksConfig.hordeMultiplyingRequiresLineOfSight || mob.hasLineOfSight(target))
+                && (maxNearby == 0 || level.getEntitiesOfClass(Mob.class, mob.getBoundingBox().inflate(16),
+                        m -> ConfigCache.isHordeMob(m.getType())).size() <= maxNearby);
+    }
+
+    @ModifyConstant(method = EXECUTE, constant = @Constant(doubleValue = 8.0E-4), remap = false, require = 1)
+    private static double modifyMultiplyChance(double chance) {
+        return chance * EnhancedHordesTweaksConfig.hordeMultiplyingChance / 100.0;
+    }
+
+    private static Entity currentEntity() {
+        java.lang.ref.WeakReference<Entity> ref = CURRENT_ENTITY.get();
+        return ref == null ? null : ref.get();
+    }
+
     private static boolean shouldAllowEHBreak(LevelAccessor level, BlockPos pos, BlockState state) {
         if (!EnhancedHordesTweaksConfig.enableHordeBlockBreaking) return false;
         if (level instanceof net.minecraft.world.level.Level concrete
@@ -124,10 +168,8 @@ public class HordeTickMixin {
                         concrete, EnhancedHordesTweaksConfig.featuresDaysBeforeActivation)) {
             return false;
         }
-        java.lang.ref.WeakReference<Entity> ref = CURRENT_ENTITY.get();
-        Entity currentEntity = ref == null ? null : ref.get();
         if (!EnhancedHordesTweaksConfig.hordeBabyBlockBreaking
-                && currentEntity instanceof Mob mob && mob.isBaby()) {
+                && currentEntity() instanceof Mob mob && mob.isBaby()) {
             return false;
         }
         if (EnhancedHordesTweaksConfig.hordeMentalityProtectSupportingBlocks

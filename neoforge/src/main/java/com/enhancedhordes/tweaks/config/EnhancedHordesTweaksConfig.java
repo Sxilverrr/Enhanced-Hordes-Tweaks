@@ -96,6 +96,14 @@ public class EnhancedHordesTweaksConfig {
             )
             .define("features.enableHordeStacking", true);
 
+    private static final ModConfigSpec.BooleanValue HORDE_STACKING_REQUIRES_TARGET = BUILDER
+            .comment(
+                "Horde mobs only stack, and break blocks while stacking, when they have a target.",
+                "Stops idle groups from piling up and digging down where they stand.",
+                "Has no effect if enableHordeStacking is false."
+            )
+            .define("features.hordeStackingRequiresTarget", false);
+
     private static final ModConfigSpec.BooleanValue HORDE_FIRE_SPREAD = BUILDER
             .comment(
                 "Allow horde mobs that are on fire to spread fire to nearby horde mobs on contact."
@@ -155,6 +163,52 @@ public class EnhancedHordesTweaksConfig {
                 "This overrides the graveRobbers list."
             )
             .define("features.enableHordeMultiplying", true);
+
+    private static final ModConfigSpec.BooleanValue HORDE_MULTIPLYING_REQUIRES_PLAYER_TARGET = BUILDER
+            .comment(
+                "Grave robbers only dig up reinforcements while they are targeting a player.",
+                "Has no effect if enableHordeMultiplying is false."
+            )
+            .define("features.hordeMultiplyingRequiresPlayerTarget", true);
+
+    private static final ModConfigSpec.IntValue HORDE_MULTIPLYING_MAX_TARGET_DISTANCE = BUILDER
+            .comment(
+                "Grave robbers only dig up reinforcements while their target is within this many blocks. 0 = no limit.",
+                "Has no effect if enableHordeMultiplying is false.",
+                "Range: 0 ~ 256"
+            )
+            .defineInRange("features.hordeMultiplyingMaxTargetDistance", 0, 0, 256);
+
+    private static final ModConfigSpec.BooleanValue HORDE_MULTIPLYING_NIGHT_ONLY = BUILDER
+            .comment(
+                "Grave robbers only dig up reinforcements at night.",
+                "Has no effect if enableHordeMultiplying is false."
+            )
+            .define("features.hordeMultiplyingNightOnly", false);
+
+    private static final ModConfigSpec.BooleanValue HORDE_MULTIPLYING_REQUIRES_LINE_OF_SIGHT = BUILDER
+            .comment(
+                "Grave robbers only dig up reinforcements while they can see their target.",
+                "Has no effect if enableHordeMultiplying is false."
+            )
+            .define("features.hordeMultiplyingRequiresLineOfSight", false);
+
+    private static final ModConfigSpec.IntValue HORDE_MULTIPLYING_MAX_NEARBY_MOBS = BUILDER
+            .comment(
+                "Grave robbers stop digging once this many other horde mobs are within 16 blocks of them. 0 = no limit.",
+                "Has no effect if enableHordeMultiplying is false.",
+                "Range: 0 ~ 500"
+            )
+            .defineInRange("features.hordeMultiplyingMaxNearbyMobs", 0, 0, 500);
+
+    private static final ModConfigSpec.IntValue HORDE_MULTIPLYING_CHANCE = BUILDER
+            .comment(
+                "How often grave robbers start digging, as a percentage of the base mod's rate.",
+                "100 = unchanged (about once a minute per mob), 50 = half as often, 200 = twice as often.",
+                "Has no effect if enableHordeMultiplying is false.",
+                "Range: 1 ~ 1000"
+            )
+            .defineInRange("features.hordeMultiplyingChance", 100, 1, 1000);
 
     private static final ModConfigSpec.BooleanValue ENABLE_INTELLIGENT_TEAMS = BUILDER
             .comment(
@@ -1611,6 +1665,13 @@ public class EnhancedHordesTweaksConfig {
     public static boolean hordeBabyBlockBreaking;
     public static boolean hordeBabyFireSpeedBoost;
     public static boolean enableHordeMultiplying;
+    public static boolean hordeStackingRequiresTarget;
+    public static boolean hordeMultiplyingRequiresPlayerTarget;
+    public static int hordeMultiplyingMaxTargetDistance;
+    public static boolean hordeMultiplyingNightOnly;
+    public static boolean hordeMultiplyingRequiresLineOfSight;
+    public static int hordeMultiplyingMaxNearbyMobs;
+    public static int hordeMultiplyingChance;
     public static boolean enableIntelligentTeams;
     public static boolean enableLeapingMobs;
     public static boolean enableIntelligentPiglins;
@@ -1826,6 +1887,13 @@ public class EnhancedHordesTweaksConfig {
         hordeBabyBlockBreaking = HORDE_BABY_BLOCK_BREAKING.get();
         hordeBabyFireSpeedBoost = HORDE_BABY_FIRE_SPEED_BOOST.get();
         enableHordeMultiplying = ENABLE_HORDE_MULTIPLYING.get();
+        hordeStackingRequiresTarget = HORDE_STACKING_REQUIRES_TARGET.get();
+        hordeMultiplyingRequiresPlayerTarget = HORDE_MULTIPLYING_REQUIRES_PLAYER_TARGET.get();
+        hordeMultiplyingMaxTargetDistance = HORDE_MULTIPLYING_MAX_TARGET_DISTANCE.get();
+        hordeMultiplyingNightOnly = HORDE_MULTIPLYING_NIGHT_ONLY.get();
+        hordeMultiplyingRequiresLineOfSight = HORDE_MULTIPLYING_REQUIRES_LINE_OF_SIGHT.get();
+        hordeMultiplyingMaxNearbyMobs = HORDE_MULTIPLYING_MAX_NEARBY_MOBS.get();
+        hordeMultiplyingChance = HORDE_MULTIPLYING_CHANCE.get();
         enableIntelligentTeams = ENABLE_INTELLIGENT_TEAMS.get();
         enableLeapingMobs = ENABLE_LEAPING_MOBS.get();
         enableIntelligentPiglins = ENABLE_INTELLIGENT_PIGLINS.get();
