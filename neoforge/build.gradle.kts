@@ -48,6 +48,7 @@ dependencies {
     "neoForge"("net.neoforged:neoforge:${common.mod.dep("neoforge_loader")}")
 
     modCompileOnly(common.mod.dep("base_mod"))
+    modLocalRuntime(common.mod.dep("base_mod"))
 
     commonBundle(project(common.path, "namedElements")) { isTransitive = false }
     shadowBundle(project(common.path, "transformProductionNeoForge")) { isTransitive = false }

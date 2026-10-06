@@ -162,7 +162,7 @@ public class HordeMentalityHandler {
             if (qualifiedTier == 0) continue;
 
             List<BlockPos> touchingBreakable = new ArrayList<>();
-            AABB mobBox = mob.getBoundingBox().inflate(0.1);
+            AABB mobBox = mob.getBoundingBox().inflate(0.7, 0.1, 0.7);
             int minX = Mth.floor(mobBox.minX);
             int maxX = Mth.floor(mobBox.maxX);
             int minY = Mth.floor(mobBox.minY);
