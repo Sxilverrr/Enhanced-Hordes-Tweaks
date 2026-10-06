@@ -13,13 +13,13 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.MobDespawnEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class HordeDeterminationHandler {
 
     private static final Map<UUID, DeterminationRecord> RECORDS = new ConcurrentHashMap<>();
-    private static final Set<UUID> FORCED_PERSISTENCE = ConcurrentHashMap.newKeySet();
     private static final int PRUNE_INTERVAL_TICKS = 20 * 30;
     private static final String FORCED_PERSISTENCE_TAG = "eht_forced_persistence";
 
@@ -48,12 +47,7 @@ public class HordeDeterminationHandler {
     @SubscribeEvent
     public static void onLivingTick(EntityTickEvent.Pre event) {
         if (!(event.getEntity() instanceof Mob mob)) return;
-        if (!EnhancedHordesTweaksConfig.enableHordeDetermination) {
-            if (!FORCED_PERSISTENCE.isEmpty() && FORCED_PERSISTENCE.contains(mob.getUUID())) {
-                clearForcedPersistence(mob);
-            }
-            return;
-        }
+        if (!EnhancedHordesTweaksConfig.enableHordeDetermination) return;
         if (!(mob.level() instanceof ServerLevel level)) return;
         if (!EnhancedHordesTweaksConfig.daysElapsedReached(
                 level, EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation)) return;
@@ -72,12 +66,10 @@ public class HordeDeterminationHandler {
             if (player.isCreative() || player.isSpectator()) {
                 mob.setTarget(null);
                 RECORDS.remove(mob.getUUID());
-                clearForcedPersistence(mob);
                 return;
             }
             if (!GameStagesCompat.allows(player, EnhancedHordesTweaksConfig.hordeDeterminationStage)) {
                 RECORDS.remove(mob.getUUID());
-                clearForcedPersistence(mob);
                 return;
             }
             RECORDS.compute(mob.getUUID(), (k, existing) -> {
@@ -86,19 +78,14 @@ public class HordeDeterminationHandler {
                 }
                 return existing;
             });
-            forcePersistence(mob);
             return;
         }
 
         DeterminationRecord record = RECORDS.get(mob.getUUID());
-        if (record == null) {
-            clearForcedPersistence(mob);
-            return;
-        }
+        if (record == null) return;
 
         if (maxTimeMinutes > 0 && (gameTime - record.startTick) > maxTicks) {
             RECORDS.remove(mob.getUUID());
-            clearForcedPersistence(mob);
             return;
         }
 
@@ -109,37 +96,39 @@ public class HordeDeterminationHandler {
         if (player.isCreative()
                 || !GameStagesCompat.allows(player, EnhancedHordesTweaksConfig.hordeDeterminationStage)) {
             RECORDS.remove(mob.getUUID());
-            clearForcedPersistence(mob);
             return;
         }
 
         double distSqr = mob.distanceToSqr(player);
         if (distSqr > (double) maxDistance * maxDistance) {
             RECORDS.remove(mob.getUUID());
-            clearForcedPersistence(mob);
             return;
         }
 
         mob.setTarget(player);
-        forcePersistence(mob);
+    }
+
+    @SubscribeEvent
+    public static void onDespawnCheck(MobDespawnEvent event) {
+        if (EnhancedHordesTweaksConfig.enableHordeDetermination && RECORDS.containsKey(event.getEntity().getUUID())) {
+            event.setResult(MobDespawnEvent.Result.DENY);
+        }
     }
 
     @SubscribeEvent
     public static void onEntityJoin(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide()) return;
         if (!(event.getEntity() instanceof Mob mob)) return;
-        if (!mob.isPersistenceRequired()) return;
-        if (!ConfigCache.isHordeMob(mob.getType())) return;
-        if (mob.getPersistentData().getBoolean(FORCED_PERSISTENCE_TAG)) {
-            FORCED_PERSISTENCE.add(mob.getUUID());
-        }
+        CompoundTag data = mob.getPersistentData();
+        if (!data.getBoolean(FORCED_PERSISTENCE_TAG)) return;
+        data.remove(FORCED_PERSISTENCE_TAG);
+        mob.persistenceRequired = false;
     }
 
     @SubscribeEvent
     public static void onEntityLeave(EntityLeaveLevelEvent event) {
         if (event.getEntity().isRemoved()) {
             RECORDS.remove(event.getEntity().getUUID());
-            FORCED_PERSISTENCE.remove(event.getEntity().getUUID());
         }
     }
 
@@ -178,22 +167,5 @@ public class HordeDeterminationHandler {
                 EnhancedHordesTweaksConfig.hordeDeterminationDaysBeforeActivation,
                 EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseIntervalDays,
                 EnhancedHordesTweaksConfig.hordeDeterminationTimeIncreaseAmount, 1440, day);
-    }
-
-    private static void forcePersistence(Mob mob) {
-        if (!mob.isPersistenceRequired()) {
-            mob.setPersistenceRequired();
-            FORCED_PERSISTENCE.add(mob.getUUID());
-            mob.getPersistentData().putBoolean(FORCED_PERSISTENCE_TAG, true);
-        }
-    }
-
-    private static void clearForcedPersistence(Mob mob) {
-        boolean tracked = FORCED_PERSISTENCE.remove(mob.getUUID());
-        if (!tracked && !mob.isPersistenceRequired()) return;
-        CompoundTag data = mob.getPersistentData();
-        if (!tracked && !data.getBoolean(FORCED_PERSISTENCE_TAG)) return;
-        data.remove(FORCED_PERSISTENCE_TAG);
-        mob.persistenceRequired = false;
     }
 }
