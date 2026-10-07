@@ -232,8 +232,9 @@ public class HordeMentalityHandler {
             }
 
             if (EnhancedHordesTweaksConfig.hordeMentalityRequireBlockInDirection) {
-                Vec3 lookDir = mob.getLookAngle();
                 Vec3 mobOrigin = mob.position();
+                LivingEntity aim = currentTarget != null ? currentTarget : nearestPlayer;
+                Vec3 lookDir = aim != null ? aim.position().subtract(mobOrigin).normalize() : mob.getLookAngle();
                 touchingBreakable.removeIf(pos -> {
                     Vec3 mobToBlock = Vec3.atCenterOf(pos).subtract(mobOrigin).normalize();
                     return lookDir.dot(mobToBlock) < 0.3;
